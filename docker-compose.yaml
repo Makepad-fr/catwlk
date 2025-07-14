@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  clip-service:
+    build: ./clip-service
+    container_name: clip-service
+    ports:
+      - "9000:9000"
+    networks:
+      - rpcnet
+
+  image-to-label-service:
+    build: ./image-to-label-service
+    container_name: image-to-label-service
+    depends_on:
+      - clip-service
+    networks:
+      - rpcnet
+    # Make sure the Go client connects to the server **by service name**, not localhost
+    environment:
+      - SERVER_ADDR=clip-service:9000
+
+networks:
+  rpcnet:

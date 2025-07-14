@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 )
 
 type RPCRequest struct {
@@ -20,8 +21,24 @@ type RPCResponse struct {
 	ID      int             `json:"id"`
 }
 
+func dialWithRetry(address string, maxAttempts int, initialDelay time.Duration) (net.Conn, error) {
+	var conn net.Conn
+	var err error
+	delay := initialDelay
+	for i := 1; i <= maxAttempts; i++ {
+		conn, err = net.Dial("tcp", address)
+		if err == nil {
+			return conn, nil
+		}
+		fmt.Printf("Attempt %d: waiting %v, error: %v\n", i, delay, err)
+		time.Sleep(delay)
+		delay *= 2 // exponential backoff
+	}
+	return nil, fmt.Errorf("could not connect after %d attempts: %w", maxAttempts, err)
+}
+
 func main() {
-	conn, err := net.Dial("tcp", "127.0.0.1:9000")
+	conn, err := dialWithRetry("clip-service:9000", 6, 1*time.Second)
 	if err != nil {
 		panic(err)
 	}
