@@ -1,4 +1,5 @@
-version: '3.8'
+# TODO: What is the restart policy of this?
+# TODO: Healthcheck?
 services:
   clip-service:
     build: ./clip-service
@@ -8,16 +9,22 @@ services:
     networks:
       - rpcnet
 
+
+# TODO: What is the restart policy of this?
+# TODO: Healthcheck?
   image-to-label-service:
     build: ./image-to-label-service
     container_name: image-to-label-service
     depends_on:
       - clip-service
+    ports:
+      - "8080:8080"
     networks:
       - rpcnet
     # Make sure the Go client connects to the server **by service name**, not localhost
     environment:
       - SERVER_ADDR=clip-service:9000
 
+# TODO: What are different network types? 
 networks:
   rpcnet:

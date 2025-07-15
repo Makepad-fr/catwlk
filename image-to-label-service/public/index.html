@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Glamify ✨</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Mono&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: #f4f3f0;
+      color: #1a1a1a;
+      display: flex;
+      justify-content: center;
+      padding: 4vh 2rem;
+    }
+
+    .container {
+      max-width: 960px;
+      width: 100%;
+      background: #fffefc;
+      border-radius: 2rem;
+      padding: 3rem;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+    }
+
+    .brand {
+      font-family: 'Space Mono', monospace;
+      font-size: 2.4rem;
+      font-weight: 700;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.4rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 1rem;
+      margin-bottom: 2.5rem;
+      line-height: 1.6;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    input[type="file"] {
+      padding: 0.8rem 1rem;
+      font-size: 0.95rem;
+      border: 1px solid #ddd;
+      border-radius: 0.75rem;
+      background: #fafafa;
+      cursor: pointer;
+    }
+
+    button {
+      background: #111;
+      color: #fff;
+      font-weight: 600;
+      border: none;
+      padding: 0.9rem 1.4rem;
+      border-radius: 0.75rem;
+      cursor: pointer;
+      transition: background 0.3s;
+      letter-spacing: 0.03em;
+    }
+
+    button:hover {
+      background: #333;
+    }
+
+    .image-preview {
+      width: 100%;
+      max-height: 520px;
+      object-fit: contain;
+      border-radius: 1.2rem;
+      margin-bottom: 2.5rem;
+      background: #f0efec;
+      padding: 2rem;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.04);
+      display: none;
+      transition: all 0.4s ease;
+    }
+
+    #result {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+
+    .label-box {
+      background: #f9f8f6;
+      padding: 1.75rem;
+      border-radius: 1.25rem;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .label-box:first-child {
+      grid-column: span 2;
+      background: #fffefc;
+      border: 1px solid #eee;
+      padding: 2.5rem;
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      color: #999;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.3rem;
+    }
+
+    .main-label {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #222;
+    }
+
+    .confidence {
+      font-size: 0.95rem;
+      color: #555;
+      margin-bottom: 0.6rem;
+    }
+
+    .alt-labels {
+      font-size: 0.85rem;
+      color: #555;
+      line-height: 1.5;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 0.5rem;
+    }
+
+    .alt-labels span {
+      display: block;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand">GLAMIFY</div>
+    <div class="subtitle">
+      Upload a look. Our AI tells you what vibes you're giving off. ✨
+    </div>
+
+    <form id="uploadForm" enctype="multipart/form-data" method="post" action="/classify">
+      <input type="file" name="image" accept="image/*" required />
+      <button type="submit">Classify Look</button>
+    </form>
+
+    <img id="uploadedImage" class="image-preview" />
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const resultDiv = document.getElementById('result');
+    const imgPreview = document.getElementById('uploadedImage');
+
+    form.onsubmit = async function (e) {
+      e.preventDefault();
+      const data = new FormData(form);
+      const file = data.get("image");
+
+      // Show preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        imgPreview.src = reader.result;
+        imgPreview.style.display = 'block';
+        form.style.opacity = 0.6;
+      };
+      reader.readAsDataURL(file);
+
+      resultDiv.innerHTML = "Analyzing...";
+
+      try {
+        const resp = await fetch(form.action, {
+          method: "POST",
+          body: data
+        });
+
+        const json = await resp.json();
+        const result = json.result || json.error;
+
+        resultDiv.innerHTML = '';
+
+        for (const category in result) {
+          const { label, score, alternatives } = result[category];
+
+          const box = document.createElement("div");
+          box.className = "label-box";
+
+          box.innerHTML = `
+            <div class="section-title">${category}</div>
+            <div class="main-label">${label}</div>
+            <div class="confidence">Confidence: ${(score * 100).toFixed(1)}%</div>
+            <div class="alt-labels">
+              ${alternatives
+                .filter((alt) => alt.label !== label)
+                .map((alt) => `<span>• ${alt.label} (${(alt.score * 100).toFixed(1)}%)</span>`)
+                .join("")}
+            </div>
+          `;
+
+          resultDiv.appendChild(box);
+        }
+      } catch (err) {
+        resultDiv.innerHTML = "Failed to classify: " + err;
+      }
+    };
+  </script>
+</body>
+</html>

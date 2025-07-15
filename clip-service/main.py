@@ -1,19 +1,32 @@
-import socket
 import json
 import base64
 from PIL import Image
 import io
-
 import torch
 import clip
 
 # --- Only these dependencies: torch, clip, pillow ---
 
+# TODO: Use pydentic
+# TODO: Add python doc comments
+# TODO: Use python linter flake8 or similar
+# TODO: Check if the server can handle multiple TCP requests at the same time, if not adjust
+# TODO: In the result show all the possible labels which is not 0 as value
+
 device = "cpu"
 model, preprocess = clip.load("ViT-B/32", device=device)
 
 def classify(image_b64, labels_dict):
-    # Decode image
+    """
+    Classify an image using CLIP given base64 image data and a dictionary of label categories.
+
+    Args:
+        image_b64 (str): Base64-encoded RGB image
+        labels_dict (dict[str, list[str]]): Dict of categories and their possible labels
+
+    Returns:
+        dict[str, dict]: For each category, returns the top label, score, and all non-zero predictions.
+    """
     image_bytes = base64.b64decode(image_b64)
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     image_input = preprocess(image).unsqueeze(0).to(device)
@@ -26,11 +39,24 @@ def classify(image_b64, labels_dict):
             text_features = model.encode_text(text_inputs)
             logits_per_image, _ = model(image_input, text_inputs)
             probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0]
+
+        # Get index of top prediction
         idx = probs.argmax()
+
+        # Filter and sort all non-zero probability labels
+        nonzero_alternatives = [
+            {"label": label, "score": float(score)}
+            for label, score in zip(labels, probs)
+            if score > 0
+        ]
+        nonzero_alternatives.sort(key=lambda x: x["score"], reverse=True)
+
         results[category] = {
             "label": labels[idx],
-            "score": float(probs[idx])
+            "score": float(probs[idx]),
+            "alternatives": nonzero_alternatives
         }
+
     return results
 
 def handle_rpc(request_json):
